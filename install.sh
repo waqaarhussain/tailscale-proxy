@@ -69,7 +69,9 @@ echo 'Tailscale Proxy installed. One VPS, one Tailscale exit node per proxy.'
 echo '45.88.89.23 bypass: DIRECT through the VPS.'
 echo 'Commands: add | manage | bench | check'
 echo
-if [[ -r /dev/tty && -w /dev/tty ]]; then
+if [[ ${1:-} == --no-add ]]; then
+  echo 'Run: sudo tailscale-proxy add'
+elif [[ -r /dev/tty && -w /dev/tty ]]; then
   read -r -p 'Add a proxy exit now? [Y/n]: ' ANSWER < /dev/tty || ANSWER=n
   if [[ ${ANSWER,,} != n && ${ANSWER,,} != no ]]; then
     /usr/local/bin/tailscale-proxy add < /dev/tty

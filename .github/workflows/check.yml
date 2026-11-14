@@ -20,3 +20,7 @@ jobs:
           SING_BOX_BIN: /tmp/sing-box-1.14.4-linux-amd64/sing-box
           RUN_TAILSCALE_SMOKE: '1'
         run: python3 -m unittest discover -s tests -v
+      - name: Install and smoke-test the real systemd service
+        run: |
+          sudo bash install.sh --no-add
+          sudo GITHUB_ACTIONS=true python3 tests/service_smoke.py

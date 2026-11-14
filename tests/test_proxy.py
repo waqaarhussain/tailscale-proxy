@@ -29,6 +29,11 @@ def example(kind='http', udp=False):
 
 
 class ConfigTests(unittest.TestCase):
+    def test_cli_status_contract(self):
+        output = 'tailscale\n  State:    NeedsLogin\n  Log in:   https://login.tailscale.com/a/test-only\n'
+        with patch.object(m, 'api', return_value=subprocess.CompletedProcess([], 0, output, '')):
+            self.assertEqual(m.status(example()), ('NeedsLogin', 'https://login.tailscale.com/a/test-only'))
+
     def test_unique_identities_and_ports(self):
         with tempfile.TemporaryDirectory() as root, patch.object(m, 'DATA', Path(root)), patch.object(m, 'port_available', return_value=True):
             state = {'schema': 1, 'exits': []}

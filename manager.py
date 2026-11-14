@@ -164,7 +164,7 @@ def api(entry, *command):
 def status(entry):
     try:
         output = api(entry, 'status').stdout
-        state = re.search(r'^\s*State\s+(\S+)', output, re.M)
+        state = re.search(r'^\s*State:\s+(\S+)', output, re.M)
         url = re.search(r'https://login\.tailscale\.com/[^\s\x1b]+', output)
         return state.group(1) if state else 'Unknown', url.group(0) if url else None
     except (subprocess.SubprocessError, OSError):
