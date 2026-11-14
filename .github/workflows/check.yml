@@ -1,0 +1,22 @@
+name: Check installer and proxy routing
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Download pinned sing-box
+        run: |
+          curl -fsSL --retry 3 https://github.com/SagerNet/sing-box/releases/download/v1.14.4/sing-box-1.14.4-linux-amd64.tar.gz -o /tmp/sing-box.tar.gz
+          echo '699a1b510aa4396b2176d32d1181920399ebf1e267835da6f3b598d0f7c24968  /tmp/sing-box.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/sing-box.tar.gz -C /tmp
+      - name: Validate installer
+        run: bash -n install.sh
+      - name: Validate configs and real proxy routing
+        env:
+          SING_BOX_BIN: /tmp/sing-box-1.14.4-linux-amd64/sing-box
+          RUN_TAILSCALE_SMOKE: '1'
+        run: python3 -m unittest discover -s tests -v

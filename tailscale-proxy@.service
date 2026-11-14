@@ -1,0 +1,32 @@
+[Unit]
+Description=Tailscale proxy exit %i
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=tailscale-proxy
+Group=tailscale-proxy
+WorkingDirectory=/var/lib/tailscale-proxy/nodes/%i
+ExecStartPre=/opt/tailscale-proxy/sing-box check -c /etc/tailscale-proxy/exits/%i.json
+ExecStart=/opt/tailscale-proxy/sing-box run -c /etc/tailscale-proxy/exits/%i.json
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+ReadWritePaths=/var/lib/tailscale-proxy/nodes/%i
+
+[Install]
+WantedBy=multi-user.target
