@@ -15,6 +15,8 @@ state = m.read_state()
 if state['exits']:
     raise SystemExit('Refusing to run against an existing registry.')
 entry = m.new_identity(state, 'service-smoke')
+# Exercise an upgrade from the original generated name.
+entry['hostname'] = 'proxy-' + entry['slug']
 entry.update(label='service-smoke', type='http', server='example.com', port=8080,
              username='', password='', method='', udp=False, doh=m.DEFAULT_DOH)
 try:
@@ -29,9 +31,14 @@ try:
         raise AssertionError('Systemd exit did not return a Tailscale authentication link.')
     # Reapplying setup must preserve node state, config and advertising.
     subprocess.run(['/usr/local/bin/tailscale-proxy', 'restart-all'], check=True)
+    migrated = m.read_state()['exits'][0]
+    assert migrated['hostname'] == 'service-smoke'
+    assert migrated['slug'] == entry['slug']
+    assert migrated['api_secret'] == entry['api_secret']
     assert m.status(entry)[0] in ('NoState', 'NeedsLogin', 'Running')
     print('Installer, restricted systemd service, API and sign-in link: PASS')
     print('Persistent identity preserved across service restart: PASS')
+    print('Legacy exit-node name migrated without changing state directory: PASS')
 finally:
     subprocess.run(['systemctl', 'disable', '--now', m.unit(entry)], check=False,
                    capture_output=True)

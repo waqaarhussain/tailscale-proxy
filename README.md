@@ -8,9 +8,9 @@ Each country runs one systemd service with its own persistent Tailscale identity
 
 | Selected exit node | Connection |
 | --- | --- |
-| `proxy-uk` | Your UK upstream proxy |
-| `proxy-usa` | Your USA upstream proxy |
-| `proxy-turkey` | Your Turkey upstream proxy |
+| `uk` | Your UK upstream proxy |
+| `usa` | Your USA upstream proxy |
+| `turkey` | Your Turkey upstream proxy |
 
 Apple TV can select USA while an iPhone selects Turkey, using the same VPS simultaneously. The upstream proxy determines the public exit IP and country.
 
@@ -22,15 +22,15 @@ Use an Ubuntu/Debian VPS with systemd, AMD64 or ARM64, internet access and permi
 curl -fsSL https://raw.githubusercontent.com/waqaarhussain/tailscale-proxy/main/install.sh -o /tmp/tailscale-proxy-install.sh && sudo bash /tmp/tailscale-proxy-install.sh
 ```
 
-The installer installs a checksummed, pinned sing-box **1.14.4** release with Tailscale support. It offers to add the first proxy immediately. Each later `add` creates another country exit on the same VPS. Rerunning the installer keeps the registry and Tailscale identities and restarts the existing exits.
+The installer installs a checksummed, pinned sing-box **1.14.4** release with Tailscale support. It offers to add the first proxy immediately. Each later `add` creates another country exit on the same VPS. The exit node uses the proxy name as its hostname, without an added `proxy-` prefix. Hostnames are lowercase with spaces/punctuation converted to hyphens, for example **USA Residential** becomes `usa-residential`. Duplicate labels get a numeric suffix. Rerunning the installer keeps the registry and Tailscale identities and restarts the existing exits. Original generated names such as `proxy-usa` are migrated to `usa`; the node state directory, ports, proxy credentials and direct-IP bypass are preserved. To update without adding a new exit, pass `--no-add` to the installer.
 
 ## Add and connect
 
 1. Run `sudo add` (or `sudo tailscale-proxy add`). Enter a country name, proxy type, host, port and credentials. HTTP, SOCKS5 and Shadowsocks are supported. Passwords are hidden. SOCKS5 can also use IP allowlisting. If required, allowlist the VPS public IP with the proxy provider.
 2. Optionally enter a full Control D DoH URL for this exit. Enter keeps the default Cloudflare DoH resolver. This is the exit's DNS setting, not a per-device Control D profile.
 3. Open the **Tailscale authentication link** printed in the terminal and sign in to the same tailnet used by your Apple TV/iPhone. Every country has its own identity and first-time authentication link. Reboots reuse the saved identity.
-4. **Exit advertising is enabled automatically. Tailscale approval is separate.** If your tailnet does not auto-approve exits, open [Machines](https://login.tailscale.com/admin/machines), select the new `proxy-COUNTRY` node, then **Edit route settings > Use as exit node**. Device approval may also be required if enabled in your tailnet.
-5. On Apple TV/iPhone open **Tailscale > Exit Node** and select `proxy-COUNTRY`. Each device chooses independently.
+4. **Exit advertising is enabled automatically. Tailscale approval is separate.** If your tailnet does not auto-approve exits, open [Machines](https://login.tailscale.com/admin/machines), select the new `COUNTRY` node, then **Edit route settings > Use as exit node**. Device approval may also be required if enabled in your tailnet.
+5. On Apple TV/iPhone open **Tailscale > Exit Node** and select `COUNTRY`. Each device chooses independently.
 
 You can approve the exit routes from the VPS instead of the website:
 
@@ -54,7 +54,29 @@ Tailscale coordination/relay connections and the upstream proxy connection use t
 
 Tailscale normally uses the selected exit node's DNS. This project handles Tailscale peer DNS using the configured exit DoH resolver **through that exit's upstream proxy**. Only infrastructure lookups for Tailscale and proxy hostnames use the VPS resolver.
 
-This project does **not claim that iOS/tvOS will preserve an existing device DNS profile** while a Tailscale exit is active. Per-device Control D profile behaviour must be tested on each platform. A Control D URL entered when adding an exit applies to clients using that exit's DNS, so it does not preserve distinct per-device resolver identities. Do not assume that unticking Tailscale DNS proves the device's DNS profile is being used.
+For device-specific Control D profiles, use the supported [Tailscale Control D integration](https://tailscale.com/docs/integrations/control-d):
+
+1. Add the Control D Tailscale endpoint's Resolver ID as the global Control D nameserver in Tailscale DNS.
+2. Enable **Override DNS servers** and **Use with exit node** on that nameserver. Keep Control D configured globally for overrides to work.
+3. Create separate Control D endpoints linked to the profiles you want each device to use.
+4. In the Tailscale policy JSON, append `nodeAttrs` entries targeting each client device's Tailscale IP and specifying `controld:RESOLVER_ID?priority=1`. The [Tailscale target reference](https://tailscale.com/docs/reference/targets-and-selectors) allows IP targets for node attributes. Use actual device IPs; the example addresses and resolver IDs below are placeholders.
+
+```json
+"nodeAttrs": [
+  {
+    "target": ["100.64.0.10"],
+    "attr": ["controld:APPLE_TV_RESOLVER_ID?priority=1"]
+  },
+  {
+    "target": ["100.64.0.11"],
+    "attr": ["controld:IPHONE_RESOLVER_ID?priority=1"]
+  }
+]
+```
+
+Merge these entries with any existing `nodeAttrs`; do not replace the whole policy. A higher priority wins when multiple Control D attributes match a device. Target the **client device**, not the country exit node. A user-email target applies to that user's devices, so it is unsuitable for separating devices owned by one login.
+
+With this integration enabled, each supported Tailscale client selects its own Control D resolver rather than the exit service's fallback resolver. The selected country proxy remains independent. Validate the applied endpoint/profile in Control D Analytics while each real client has an exit selected. This is managed DNS through Tailscale, not a promise to retain the OS device's existing DNS profile. Tailnet policy and Control D endpoints are managed in their respective consoles; this installer does not edit them.
 
 ## Commands
 

@@ -20,7 +20,7 @@ BIN = os.environ.get('SING_BOX_BIN')
 
 
 def example(kind='http', udp=False):
-    return {'id': 1, 'slug': 'usa', 'label': 'USA', 'hostname': 'proxy-usa',
+    return {'id': 1, 'slug': 'usa', 'label': 'USA', 'hostname': 'usa',
             'type': kind, 'server': '127.0.0.1', 'port': 1080,
             'username': 'user', 'password': 'secret', 'udp': udp,
             'method': 'aes-128-gcm', 'probe_port': 20001, 'probe_secret': 'probe-secret',
@@ -40,9 +40,30 @@ class ConfigTests(unittest.TestCase):
             a = m.new_identity(state, 'USA')
             state['exits'].append(a)
             b = m.new_identity(state, 'USA')
-            self.assertEqual((a['hostname'], b['hostname']), ('proxy-usa', 'proxy-usa-2'))
+            self.assertEqual((a['hostname'], b['hostname']), ('usa', 'usa-2'))
             for field in ('ts_port', 'api_port', 'probe_port', 'api_secret', 'probe_secret'):
                 self.assertNotEqual(a[field], b[field])
+
+    def test_legacy_name_migration_preserves_identity_and_proxy(self):
+        old = example()
+        old['hostname'] = 'proxy-usa'
+        state = {'schema': 1, 'exits': [old]}
+        with patch.object(m, 'save_exit') as save:
+            m.restart_all(state)
+            updated = save.call_args.args[1]
+            self.assertEqual(updated['hostname'], 'usa')
+            self.assertEqual({k: v for k, v in updated.items() if k != 'hostname'},
+                             {k: v for k, v in old.items() if k != 'hostname'})
+            self.assertEqual(m.make_config(old)['endpoints'][0]['state_directory'],
+                             m.make_config(updated)['endpoints'][0]['state_directory'])
+            self.assertEqual(m.make_config(old)['route'], m.make_config(updated)['route'])
+
+    def test_custom_existing_node_name_is_preserved(self):
+        entry = example()
+        entry['hostname'] = 'custom-country-name'
+        with patch.object(m, 'save_exit') as save, patch.object(m, 'configure'), patch.object(m, 'run'), patch.object(m, 'ready'):
+            m.restart_all({'schema': 1, 'exits': [entry]})
+            save.assert_not_called()
 
     def test_only_exact_bypass_can_go_direct(self):
         for kind in ('http', 'socks', 'shadowsocks'):
